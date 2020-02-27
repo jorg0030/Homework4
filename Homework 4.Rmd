@@ -1,0 +1,264 @@
+---
+title: "Homework 4"
+output: html_document
+---
+
+```{r}
+Data<-read.csv("titanic.csv")
+head(Data)
+```
+
+
+## 1. Finit.
+
+## 2. Variables that are likely to impact survival:
+
+
+#### a. Class:
+High class passengers stayed in cabins closer to the deck of the ship and were more likely to access lifeboats sooner.
+Ha: Passengers staying in higher class cabins are more likely to survive than passengers staying in lower class cabins.
+
+
+#### b. Fare:
+Those who payed a high fare were likely placed in higher class cabins (eg. higher above the water to allow for window views) which would allow them to escape to the deck/lifeboats more quickly. Note that the variables "class" and "fare" are likely colinear.
+Ha: Passengers who payed higher fre rates are more liekly to survive than passengers that payed lower fare. 
+
+
+#### c. Gender: 
+In the 1800s it is likely that woman and children would be allowed on lifeboats before men.
+Ha: Woman are more likely to survive than men.
+
+
+#### d. Age: 
+As noted above, children may be more liekly to be granted boat access than older passengers.Parents, at least mothers would likely be allowed to board lifeboats with their children and, given the time period, would liekly only be in their 20-30s. Also, younger passengers would be more likely to quickly reach the deck during the emergency than seniors. 
+Ha. Younger passeners are more liekly to survive than older passengers.
+
+
+#### e. Country of Residence:
+Americans would have to have travelled a long way in order to ride on the titanic. This indicates that they are likely richer, and more likely to ride in higher class cabins than nationalities from Europe.
+Ha: American passengers are more likely to survive than passengers of other nationalities.
+
+
+## 3. Plots of all five tested variables vs age
+
+```{r}
+library(vcd)
+mosaic(Data$pclass~Data$survived)
+mosaic(Data$Gender~Data$survived)
+mosaic(Data$Residence~Data$survived)
+```
+
+```{r}
+library(popbio)
+Agenona<-na.omit(data.frame("Age"=Data$age,"Survived"=Data$survived))
+
+FareNona<-na.omit(data.frame("Fare"=Data$fare,"Survived"=Data$survived))
+
+logi.hist.plot(Agenona$Age,Agenona$Survived,boxp=FALSE,type="hist",col="blue", xlabel="Age")
+
+logi.hist.plot(FareNona$Fare,FareNona$Survived,boxp=FALSE,type="hist",col="green", xlabel="Fare")
+```
+
+
+## 4. Automatic Selection
+
+```{r}
+library(dplyr)
+library(bestglm)
+
+Variables<-data.frame("Age"=Data$age,"Class"=Data$pclass,"Fare"=Data$fare,"Gender"=Data$Gender,"Residence"=Data$Residence, "Survived"=Data$survived) %>% 
+na.omit(Variables)
+
+bestglm(Variables,IC="AIC",family=binomial)
+```
+
+
+## 5. Logistic Regression
+
+```{r}
+Mod1<-glm(Survived~Age+Class+Gender+Residence, data=Variables)
+summary.lm(Mod1)
+```
+
+## 6. Purposeful Selection
+
+```{r}
+GLMAge<-glm(Survived~Age, data=Variables, family=binomial(link="logit"))
+summary(GLMAge)
+
+GLMClass<-glm(Survived~Class, data=Variables, family=binomial(link="logit"))
+summary(GLMClass)
+
+GLMFare<-glm(Survived~Fare, data=Variables, family=binomial(link="logit"))
+summary(GLMFare)
+
+GLMGender<-glm(Survived~Gender, data=Variables, family=binomial(link="logit"))
+summary(GLMGender)
+
+GLMResidence<-glm(Survived~Residence, data=Variables, family=binomial(link="logit"))
+summary(GLMResidence)
+
+```
+
+
+All variables have a p < 0.25
+
+```{r}
+Mod2<-glm(Survived~Age+Class+Fare+Gender+Residence, data=Variables, family=binomial(link="logit"))
+summary(Mod2)
+```
+
+
+Dropping Fare as it is not signficant and comapring models:
+
+```{r}
+Mod3<-glm(Survived~Age+Class+Gender+Residence, data=Variables, family=binomial(link="logit"))
+summary(Mod3)
+library(lmtest)
+lrtest(Mod2,Mod3)
+```
+
+
+P > 0.05 which indicates that the two models are not signficantly different in their predictive ability. So let's remove Residence and try again.
+
+```{r}
+Mod4<-glm(Survived~Age+Class+Gender, data=Variables, family=binomial(link="logit"))
+summary(Mod4)
+lrtest(Mod3,Mod4)
+```
+
+
+Mod 3 and mod 4 are not sigificantly different in their predictive ability. In mod4 all of the variables are pretty sigificant, but lets try removing one more.
+
+```{r}
+Mod5<-glm(Survived~Class+Gender, data=Variables, family=binomial(link="logit"))
+summary(Mod5)
+lrtest(Mod4,Mod5)
+```
+
+In this case there is a sigificant difference in the predictive ability of models 4 and 5. Therefor I will conclude that model 4 is the minimum adaquate model for this data set.
+
+## 7. Purposeful selection of variables lead to the creation of a model including one variable fewer than suggested through automatic selection.
+
+
+Mod1<-glm(Survived~Age+Class+Gender+Residence, data=Variables)
+Mod4<-glm(Survived~Age+Class+Gender, data=Variables, family=binomial(link="logit"))
+
+
+
+## 8. View effects. 
+
+
+Following the principle of parsimony, I selected Mod4 as my best model due to the inclusion of fewer variables.
+
+```{r}
+library(effects)
+plot(allEffects(Mod4))
+```
+
+
+All the effects included in Model 4 are in the direction that I expected.
+
+## 9.Regression Diagnostics
+
+```{r}
+library(car)
+residualPlots(Mod4)
+```
+
+
+All model paremeters have p < 0.05 indicating that they do not have signifciant relationships with residuals and thus are not of concern.
+
+
+Now testing for outliers...
+
+```{r}
+outlierTest(Mod4)
+```
+
+
+This indicates that there are no sigificant outliers in the data as there are no studentized residuals with Bonferroni p < 0.05
+
+
+Now lets test for leverage:
+
+```{r}
+influenceIndexPlot(Mod4, id.n=3)
+```
+
+
+All bonferreni p values are close to 1 indicating that there is no sigificant differneces in the leverage of model points
+
+
+Now testing for influence (Cook's distance):
+
+```{r}
+influencePlot(Mod4, col="blue")
+```
+
+
+Now we'll try removing the point with the largest Cook's distance and comparing the models:
+
+```{r}
+Mod4b<-update(Mod4,subset=c(-25))
+compareCoefs(Mod4,Mod4b)
+```
+
+
+The coefficients have changed very little between the models indicating that point 25 is not influencial on our model.
+
+
+Now let's check for multicolinearity:
+
+```{r}
+vif(Mod4)
+```
+
+
+All VIF values are below 4 indicating that there is no multicoliarity of concern in Mod4.
+
+
+Now we'll summarize everything with the print function:
+
+```{r}
+print(Mod4)
+```
+
+
+## 10. Results of Concern
+
+The only result of concern from my regression diagnostics was that Parch had a sigificant relationship with model residuals. All three variables also had noticable changes in redidual variance as they increased in value.
+
+
+## 11. k-fold cross validation - how good is our model at predicting survival?
+
+```{r}
+library(caret)
+ctrl <- trainControl(method = "repeatedcv", number = 10, savePredictions = TRUE)
+
+Variables$Survived=as.factor(Variables$Survived)
+
+train(Survived~Age + Class + Gender,data=Variables, method="glm", family=binomial(link='logit'),
+                 trControl = ctrl, tuneLength = 5)
+```
+
+
+## 12. K-fold Model Accuracy
+
+
+Based on the k-fold results, Mod4 was accurate at predicting survival ~78% of the time
+
+
+## 13. Confusion Matrix
+
+```{r}
+Predictions<-predict(Mod4, newdata=Variables,type="response")
+
+confusionMatrix(table(data=as.numeric(Predictions>0.5),reference=Variables$Survived))
+```
+
+
+## 14.Differences in accuracy
+
+
+the accuracy of my model as calculated by the k-fold cross validation and my confusion matrix are nearly identicial. However,the small differences in accuracy is are likely because the methods are effectively testing different data sets. The confusion matrix checks the accuracy of predictions on the entire original data set. The k-fold analysis is effectively testing the accuracy of the model to predict the results of 9 smaller datasets(subsets), and thus may yield different results.
