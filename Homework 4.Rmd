@@ -5,7 +5,7 @@ output: html_document
 
 ```{r}
 Data<-read.csv("titanic.csv")
-head(Data)
+head(Data) 
 ```
 
 
